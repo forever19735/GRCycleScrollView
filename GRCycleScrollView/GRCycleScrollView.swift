@@ -20,11 +20,20 @@ class GRCycleScrollView: UIView {
         case None, Left, Right
     }
     
+    var autoScroll: Bool = true {
+        didSet {
+            stopTimer()
+            if autoScroll {
+                startTimer()
+            }
+        }
+    }
+    
     fileprivate var scrollView: UIScrollView?
     
     fileprivate var pageControl: UIPageControl?
     
-    fileprivate var timer: Timer?
+    fileprivate var timer: DispatchSourceTimer?
     
     fileprivate var currentImageView: UIImageView?
     
@@ -36,7 +45,11 @@ class GRCycleScrollView: UIView {
     
     fileprivate var currentDirection: MarqueeViewDirection = .None
     
-    var duration: TimeInterval = 3.0
+    var duration: TimeInterval = 3.0 {
+        didSet {
+            autoScroll = true
+        }
+    }
     
     var coverImage: UIImage? = nil
     
@@ -46,13 +59,15 @@ class GRCycleScrollView: UIView {
         didSet {
             if imagePaths.count > 1 {
                 scrollView?.isScrollEnabled = true
-                startTimer()
+                if autoScroll {
+                    startTimer()
+                }
             } else {
                 scrollView?.isScrollEnabled = false
                 stopTimer()
             }
-            loadImage(imageView: self.currentImageView!, index: 0)
             setupPage()
+            loadImage(imageView: self.currentImageView!, index: 0)
         }
     }
     
@@ -71,6 +86,17 @@ class GRCycleScrollView: UIView {
     
     @objc fileprivate func imageTaped(_ tap: UITapGestureRecognizer) {
         delegate?.cycleViewDidSelectedIndex(currentIndex)
+    }
+    
+    override func willMove(toWindow newWindow: UIWindow?) {
+        super.willMove(toWindow: newWindow)
+        if newWindow != nil {
+            if autoScroll  {
+                startTimer()
+            }
+        } else {
+            stopTimer()
+        }
     }
 }
 
@@ -96,7 +122,7 @@ extension GRCycleScrollView {
         }
         self.pageControl = UIPageControl(frame: CGRect(x: 0, y: self.bounds.size.height - 30, width: self.bounds.size.width, height: 30))
         self.addSubview(self.pageControl!)
-        
+        self.pageControl?.isUserInteractionEnabled = false
         self.pageControl?.numberOfPages = self.imagePaths.count
         self.pageControl?.currentPage = 0
         self.pageControl?.hidesForSinglePage = true
@@ -104,14 +130,14 @@ extension GRCycleScrollView {
     
     fileprivate func setupScrollView() {
         self.scrollView = UIScrollView(frame: self.bounds)
-        self.scrollView?.contentSize = CGSize(width: self.bounds.size.width * 3, height: self.bounds.size.height)
-        self.scrollView?.contentOffset = CGPoint(x: self.bounds.size.width, y: 0)
-        self.scrollView?.isPagingEnabled = true
-        self.scrollView?.bounces = false
-        self.scrollView?.scrollsToTop = false
-        self.scrollView?.showsVerticalScrollIndicator = false
-        self.scrollView?.showsHorizontalScrollIndicator = false
-        self.scrollView?.delegate = self
+        self.scrollView!.contentSize = CGSize(width: self.bounds.size.width * 3, height: self.bounds.size.height)
+        self.scrollView!.contentOffset = CGPoint(x: self.bounds.size.width, y: 0)
+        self.scrollView!.isPagingEnabled = true
+        self.scrollView!.bounces = false
+        self.scrollView!.scrollsToTop = false
+        self.scrollView!.showsVerticalScrollIndicator = false
+        self.scrollView!.showsHorizontalScrollIndicator = false
+        self.scrollView!.delegate = self
         self.addSubview(self.scrollView!)
         
         setupImage()
@@ -175,37 +201,55 @@ extension GRCycleScrollView {
         if imagePaths.count <= 1 { return }
         
         stopTimer()
-        timer = Timer.scheduledTimer(timeInterval: self.duration, target: self, selector: #selector(scroll), userInfo: nil, repeats: true)
-        RunLoop.current.add(timer!, forMode: RunLoop.Mode.common)
+        let dispatchTimer = DispatchSource.makeTimerSource()
+        dispatchTimer.schedule(wallDeadline: .now()+duration, repeating: duration)
+        dispatchTimer.setEventHandler { [weak self] in
+            DispatchQueue.main.async {
+                self?.scroll()
+            }
+        }
+        dispatchTimer.resume()
+        
+        timer = dispatchTimer
+        
     }
     
     func stopTimer() {
-        timer?.invalidate()
+        timer?.cancel()
         timer = nil
     }
 }
 
 extension GRCycleScrollView: UIScrollViewDelegate {
+    //將要開始拖動
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-        stopTimer()
+        if autoScroll {
+            stopTimer()
+        }
     }
-    
+    //停止拖動
     func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-        startTimer()
+        if autoScroll {
+            startTimer()
+        }
     }
-    
+    //透過 setContentOffset:animated 滑動完成
     func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
         self.reloadImage()
+        if autoScroll {
+            startTimer()
+        }
     }
-    
+    //停止滾動
     func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
         self.currentDirection = .None
         self.reloadImage()
     }
-    
+    //已經開始滑動
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         self.currentDirection = scrollView.contentOffset.x > scrollView.bounds.size.width ? .Left : .Right
         if self.imagePaths.count == 0 { return }
+        //向右滑
         if self.currentDirection == .Right {
             self.otherImageView!.frame = CGRect(x: 0, y: 0, width: scrollView.bounds.size.width, height: scrollView.bounds.size.height)
             self.nextIndex = self.currentIndex - 1

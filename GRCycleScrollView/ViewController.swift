@@ -20,7 +20,7 @@ class ViewController: UIViewController {
         
         cycleView = GRCycleScrollView(frame: CGRect(x: 0, y: 100, width: self.view.bounds.width, height: 120))
         self.cycleView?.imagePaths = images
-        self.cycleView?.duration = 5.0
+        self.cycleView?.duration = 2.0
         self.cycleView?.coverImage = UIImage(named: "iconCheck")
         self.cycleView?.delegate = self
         self.view.addSubview(cycleView!)
