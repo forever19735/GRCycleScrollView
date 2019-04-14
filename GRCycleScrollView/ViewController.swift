@@ -16,12 +16,12 @@ class ViewController: UIViewController {
         setupCycleView()
     }
     func setupCycleView() {
-        let images: [String] = ["iconCheck", "iconDiamond", "iconStar"]
+        let images: [String] = ["img1", "img2", "img3"]
         
         cycleView = GRCycleScrollView(frame: CGRect(x: 0, y: 100, width: self.view.bounds.width, height: 120))
         self.cycleView?.imagePaths = images
         self.cycleView?.duration = 2.0
-        self.cycleView?.coverImage = UIImage(named: "iconCheck")
+        self.cycleView?.coverImage = UIImage(named: "img1")
         self.cycleView?.delegate = self
         self.view.addSubview(cycleView!)
     }

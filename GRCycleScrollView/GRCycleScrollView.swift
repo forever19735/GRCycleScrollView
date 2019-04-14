@@ -45,11 +45,7 @@ class GRCycleScrollView: UIView {
     
     fileprivate var currentDirection: MarqueeViewDirection = .None
     
-    var duration: TimeInterval = 3.0 {
-        didSet {
-            autoScroll = true
-        }
-    }
+    var duration: TimeInterval = 3.0
     
     var coverImage: UIImage? = nil
     
@@ -57,6 +53,7 @@ class GRCycleScrollView: UIView {
     
     var imagePaths: Array<String> = [] {
         didSet {
+            self.setupScrollView()
             if imagePaths.count > 1 {
                 scrollView?.isScrollEnabled = true
                 if autoScroll {
@@ -66,14 +63,11 @@ class GRCycleScrollView: UIView {
                 scrollView?.isScrollEnabled = false
                 stopTimer()
             }
-            setupPage()
-            loadImage(imageView: self.currentImageView!, index: 0)
         }
     }
     
     override init(frame: CGRect) {
         super.init(frame: frame)
-        self.setupScrollView()
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -129,19 +123,21 @@ extension GRCycleScrollView {
     }
     
     fileprivate func setupScrollView() {
-        self.scrollView = UIScrollView(frame: self.bounds)
-        self.scrollView!.contentSize = CGSize(width: self.bounds.size.width * 3, height: self.bounds.size.height)
-        self.scrollView!.contentOffset = CGPoint(x: self.bounds.size.width, y: 0)
-        self.scrollView!.isPagingEnabled = true
-        self.scrollView!.bounces = false
-        self.scrollView!.scrollsToTop = false
-        self.scrollView!.showsVerticalScrollIndicator = false
-        self.scrollView!.showsHorizontalScrollIndicator = false
-        self.scrollView!.delegate = self
-        self.addSubview(self.scrollView!)
-        
-        setupImage()
-        setupPage()
+        if scrollView == nil {
+            self.scrollView = UIScrollView(frame: self.bounds)
+            self.scrollView!.contentSize = CGSize(width: self.bounds.size.width * 3, height: self.bounds.size.height)
+            self.scrollView!.contentOffset = CGPoint(x: self.bounds.size.width, y: 0)
+            self.scrollView!.isPagingEnabled = true
+            self.scrollView!.bounces = false
+            self.scrollView!.scrollsToTop = false
+            self.scrollView!.showsVerticalScrollIndicator = false
+            self.scrollView!.showsHorizontalScrollIndicator = false
+            self.scrollView!.delegate = self
+            self.addSubview(self.scrollView!)
+            
+            setupImage()
+            setupPage()
+        }
         reloadImage()
         
         if self.pageControl?.numberOfPages == 1 {
@@ -195,6 +191,24 @@ extension GRCycleScrollView {
             }
         }
     }
+    
+    fileprivate func calculate(_ scrollView: UIScrollView) {
+        self.currentDirection = scrollView.contentOffset.x > scrollView.bounds.size.width ? .Left : .Right
+        if self.imagePaths.count == 0 { return }
+        //向右滑
+        if self.currentDirection == .Right {
+            self.otherImageView!.frame = CGRect(x: 0, y: 0, width: scrollView.bounds.size.width, height: scrollView.bounds.size.height)
+            self.nextIndex = self.currentIndex - 1
+            if self.nextIndex < 0 {
+                self.nextIndex = self.imagePaths.count - 1
+            }
+        } else if self.currentDirection == .Left {
+            self.otherImageView?.frame = CGRect(x: self.currentImageView!.frame.maxX, y: 0, width: scrollView.bounds.size.width, height: scrollView.bounds.size.height)
+            self.nextIndex = (self.currentIndex + 1) % self.imagePaths.count
+        }
+        
+        self.loadImage(imageView: self.otherImageView!, index: self.nextIndex)
+    }
 }
 extension GRCycleScrollView {
     func startTimer() {
@@ -209,9 +223,7 @@ extension GRCycleScrollView {
             }
         }
         dispatchTimer.resume()
-        
         timer = dispatchTimer
-        
     }
     
     func stopTimer() {
@@ -247,20 +259,6 @@ extension GRCycleScrollView: UIScrollViewDelegate {
     }
     //已經開始滑動
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        self.currentDirection = scrollView.contentOffset.x > scrollView.bounds.size.width ? .Left : .Right
-        if self.imagePaths.count == 0 { return }
-        //向右滑
-        if self.currentDirection == .Right {
-            self.otherImageView!.frame = CGRect(x: 0, y: 0, width: scrollView.bounds.size.width, height: scrollView.bounds.size.height)
-            self.nextIndex = self.currentIndex - 1
-            if self.nextIndex < 0 {
-                self.nextIndex = self.imagePaths.count - 1
-            }
-        } else if self.currentDirection == .Left {
-            self.otherImageView?.frame = CGRect(x: self.currentImageView!.frame.maxX, y: 0, width: scrollView.bounds.size.width, height: scrollView.bounds.size.height)
-            self.nextIndex = (self.currentIndex + 1) % self.imagePaths.count
-        }
-        
-        self.loadImage(imageView: self.otherImageView!, index: self.nextIndex)
+        calculate(scrollView)
     }
 }
